@@ -1,6 +1,8 @@
 package com.github.bazel_contrib.contrib_rules_jvm.junit5;
 
+import org.junit.platform.engine.discovery.ClassSelector;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
+import org.junit.platform.launcher.Launcher;
 import org.junit.platform.launcher.LauncherConstants;
 import org.junit.platform.launcher.core.LauncherConfig;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
@@ -14,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.ArrayList;
 
 import static java.nio.file.StandardOpenOption.DELETE_ON_CLOSE;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
@@ -24,7 +27,7 @@ public class ActualRunner implements RunsTest {
 
   @Override
   public boolean run(String testClassName) {
-    var out = System.getenv("XML_OUTPUT_FILE");
+    String out = System.getenv("XML_OUTPUT_FILE");
     Path xmlOut;
     try {
       xmlOut = out != null ? Paths.get(out) : Files.createTempFile("test", ".xml");
@@ -33,17 +36,18 @@ public class ActualRunner implements RunsTest {
       throw new UncheckedIOException(e);
     }
 
-    try (var bazelJunitXml = new BazelJUnitOutputListener(xmlOut)) {
-      var summary = new CommandLineSummary();
+    try (BazelJUnitOutputListener bazelJunitXml = new BazelJUnitOutputListener(xmlOut)) {
+      CommandLineSummary summary = new CommandLineSummary();
 
       LauncherConfig config = LauncherConfig.builder()
         .addTestExecutionListeners(bazelJunitXml, summary)
         .build();
 
-      var classSelector = DiscoverySelectors.selectClass(testClassName);
+      List<ClassSelector> classSelector = new ArrayList<ClassSelector>();
+      classSelector.add(DiscoverySelectors.selectClass(testClassName));
 
-      var request = LauncherDiscoveryRequestBuilder.request()
-        .selectors(List.of(classSelector))
+      LauncherDiscoveryRequestBuilder request = LauncherDiscoveryRequestBuilder.request()
+        .selectors(classSelector)
         .filters(includeEngines(
           "junit-jupiter",
           "junit-vintage"))
@@ -54,11 +58,11 @@ public class ActualRunner implements RunsTest {
       request.filters(new PatternFilter(filter));
 
       File exitFile = getExitFile();
-      var originalSecurityManager = System.getSecurityManager();
+      SecurityManager originalSecurityManager = System.getSecurityManager();
       TestRunningSecurityManager testSecurityManager = new TestRunningSecurityManager(originalSecurityManager);
       try {
         System.setSecurityManager(testSecurityManager);
-        var launcher = LauncherFactory.create(config);
+        Launcher launcher = LauncherFactory.create(config);
         launcher.execute(request.build());
      } finally {
         testSecurityManager.allowRemoval();

@@ -1,5 +1,7 @@
 package com.github.bazel_contrib.contrib_rules_jvm.junit5;
 
+import java.lang.reflect.Constructor;
+
 /**
  * Test bootstrapper. This class only depends on the JRE (java 11+) and will
  * ensure that the required dependencies for a junit5 test are on the
@@ -15,9 +17,9 @@ public class JUnit5Runner {
   private static final String JUNIT5_RUNNER_CLASS = "com.github.bazel_contrib.contrib_rules_jvm.junit5.ActualRunner";
 
   public static void main(String[] args) {
-    var testSuite = System.getProperty("bazel.test_suite");
+    String testSuite = System.getProperty("bazel.test_suite");
 
-    if (testSuite == null || testSuite.isBlank()) {
+    if (testSuite == null || testSuite.trim() == "") {
       System.err.println("No test suite specified");
       System.exit(2); // Same error code as Bazel's own test runner
     }
@@ -25,10 +27,11 @@ public class JUnit5Runner {
     detectJUnit5Classes();
 
     try {
-      var constructor = Class.forName(JUNIT5_RUNNER_CLASS)
+      Class genericClass = Class.forName(JUNIT5_RUNNER_CLASS);
+      Constructor<RunsTest> constructor = genericClass
         .asSubclass(RunsTest.class)
         .getConstructor();
-      var runsTest = constructor.newInstance();
+      RunsTest runsTest = constructor.newInstance();
       if (!runsTest.run(testSuite)) {
         System.exit(2);
       }

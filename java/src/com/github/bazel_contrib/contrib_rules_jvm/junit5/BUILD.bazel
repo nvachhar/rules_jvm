@@ -25,10 +25,6 @@ genrule(
 java_library(
     name = "junit5-compile",
     srcs = glob(["*.java"]),
-    javacopts = [
-        "--release",
-        "11",
-    ],
     deps = [
         # The only dependencies here are those required to run
         # a junit5 test. We try not to pollute the classpath, so
